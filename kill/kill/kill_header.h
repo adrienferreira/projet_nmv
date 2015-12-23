@@ -1,3 +1,4 @@
+//TODO même header module et test sys/types.h
 struct kill_struct{
 	int sig;
 	pid_t pid;

@@ -3,12 +3,12 @@
 
 ifneq ($(KERNELRELEASE),)
 
-  obj-m := helloioctl.o
+  obj-m := killmodule.o
 
 else
 	
   #KERNELDIR ?= /lib/modules/$(shell uname -r)/build
-  KERNELDIR ?=/tmp/linux-4.2.3
+  KERNELDIR ?=/home/bernadette/Logiciels/NMV/linux-4.2.3/
   PWD := $(shell pwd)
 
 all :

@@ -30,6 +30,7 @@ static int kill_ioctl_init(void)
 		return 1;
 	}
 
+	//TODO mknod
 	pr_warn("Major number : %u\n", kill_major);
 	return 0;
 }
@@ -39,10 +40,10 @@ static long perform_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
 	struct kill_struct usr_struct;
 	struct pid *dest_pid;
 
-	if(copy_from_user(arg, usr_struct, sizeof(usr_struct)))
+	if(copy_from_user(&usr_struct, (void*)arg, sizeof(usr_struct)))
 		pr_warn("Impossible to retrieve struct to kernel space\n");
 
-	dest_pid = find_get_pid(usr_struct->pid);
+	dest_pid = find_get_pid(usr_struct.pid);
 
 	if(!dest_pid)
 		pr_warn("No process with the given PID\n");
@@ -50,7 +51,7 @@ static long perform_ioctl (struct file *filp, unsigned int cmd, unsigned long ar
 
 	switch(cmd){
 		case KILL_IOCTL:
-			return kill_pid(dest_pid, usr_struct->sig, 1);
+			return kill_pid(dest_pid, usr_struct.sig, 1);
 		default:
 			return -ENOTTY;
 		break;
