@@ -1,24 +1,25 @@
 #include <sys/ioctl.h>
-#include "kill_header.h"
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <signal.h>
 #include <stdlib.h>
 
-int main(int argv, char*argc[])
+#include "structs.h"
+
+int main(int argv, char **argc)
 {
 	int f;
 	struct kill_struct ks;
-	
-	if(argv!=3){
-		printf("Usage : ./prog <pid> <sig>\n")
+
+	if (argv != 3) {
+		printf("Usage : ./prog <pid> <sig>\n");
 		return 1;
 	}
 
-	f=open("/dev/"CHRDEV_NAME,S_IWUSR);
+	f = open("/dev/"CHRDEV_NAME, S_IWUSR);
 
-	if(f == -1){
+	if (f == -1) {
 		perror("Open");
 		return 1;
 	}
@@ -27,6 +28,8 @@ int main(int argv, char*argc[])
 	ks.sig = atoi(argc[2]);
 
 	ioctl(f, KILL_IOCTL, &ks);
+
+	close(f);
 
 	return 0;
 }

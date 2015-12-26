@@ -1,0 +1,7 @@
+all:
+	echo "toto"
+
+clean:
+	echo "toto"
+
+.PHONY: all clean

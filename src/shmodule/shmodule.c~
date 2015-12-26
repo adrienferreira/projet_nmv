@@ -6,7 +6,7 @@
 #include <linux/fs.h>
 #include <asm/uaccess.h>
 
-#include "kill_header.h"
+#include "shmodule.h"
 
 
 MODULE_DESCRIPTION("Kill command");

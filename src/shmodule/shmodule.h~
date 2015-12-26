@@ -1,0 +1,11 @@
+#ifndef SHMODULE_H_
+#define SHMODULE_H_
+
+#define CHRDEV_NAME "shmodule"
+#define KILL_IOCTL _IOR('N', 1, struct kill_struct*)
+
+static long perform_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
+
+static long perform_kill(unsigned long arg);
+
+#endif
