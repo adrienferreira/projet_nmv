@@ -24,7 +24,8 @@ int main(int argc, char **argv)
 		perror("Open");
 		return 1;
 	}
-
+	
+	/* TODO: PAGE_SIZE may not be enough and uses a syscall */
 	res = malloc(getpagesize());
 	cur = res;
 
