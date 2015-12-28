@@ -35,3 +35,8 @@
 
 # Debug files
 *.dSYM/
+
+#test editors
+*.c~
+*.h~
+Makefile~
