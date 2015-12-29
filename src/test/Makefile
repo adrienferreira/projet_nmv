@@ -1,4 +1,4 @@
-TESTS = test_kill test_lsmod
+TESTS = test_kill test_lsmod test_meminfo
 CFLAGS = -I../shmodule
 
 
@@ -11,6 +11,9 @@ test_kill: test_kill.o
 	gcc -o $@ $<
 
 test_lsmod: test_lsmod.o
+	gcc -o $@ $<
+
+test_meminfo: test_meminfo.o
 	gcc -o $@ $<
 
 clean:
