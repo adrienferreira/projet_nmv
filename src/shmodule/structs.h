@@ -2,14 +2,21 @@
 #define STRUCT_H_
 
 #define CHRDEV_NAME "shmodule"
+
 #define KILL_IOCTL _IOR('N', 1, struct kill_struct*)
+#define WAITALL_IOCTL _IOR('N', 2, struct  gen_wait_usr_struct*)
+#define WAIT_IOCTL _IOR('N', 3, struct  gen_wait_usr_struct*)
 #define MEMINFO_IOCTL _IOR('N', 4, struct sysinfo*)
 #define LSMOD_IOCTL _IOR('N', 5, struct lsmod_struct*)
 
-//TODO même header module et test sys/types.h
 struct kill_struct {
-	int sig;
+	unsigned int sig;
 	pid_t pid;
+};
+
+struct gen_wait_usr_struct{
+	unsigned int nb_pid;
+	pid_t *pids;
 };
 
 #ifndef MODULE_NAME_LEN
