@@ -7,6 +7,8 @@ static long perform_kill(unsigned long arg);
 
 static long perform_lsmod(unsigned long arg);
 
+static long perform_meminfo(unsigned long arg);
+
 struct lsmod_list {
 	struct lsmod_struct mod;
 	struct list_head list;

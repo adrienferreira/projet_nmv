@@ -7,6 +7,8 @@
 #include <asm/uaccess.h>
 #include <linux/list.h>
 #include <linux/mutex.h>
+#include <linux/mm.h>
+#include <linux/swap.h>
 
 #include "structs.h"
 #include "shmodule.h"
@@ -52,6 +54,8 @@ static long perform_ioctl(struct file *filp, unsigned int cmd,
 		return perform_kill(arg);
 	case LSMOD_IOCTL:
 		return perform_lsmod(arg);
+	case MEMINFO_IOCTL:
+		return perform_meminfo(arg);
 	default:
 		return -ENOTTY;
 	}
@@ -111,6 +115,18 @@ static long perform_lsmod(unsigned long arg)
 		kfree(elt);
 	}
 	copy_to_user(buf->name, "", sizeof(char));
+
+	return 0;
+}
+
+static long perform_meminfo(unsigned long arg)
+{
+	struct sysinfo kmeminfo;
+
+	si_meminfo(&kmeminfo);
+	si_swapinfo(&kmeminfo);
+
+	copy_to_user((struct sysinfo *) arg, &kmeminfo, sizeof(struct sysinfo));
 
 	return 0;
 }

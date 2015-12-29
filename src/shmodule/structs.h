@@ -3,7 +3,8 @@
 
 #define CHRDEV_NAME "shmodule"
 #define KILL_IOCTL _IOR('N', 1, struct kill_struct*)
-#define LSMOD_IOCTL _IOR('N', 5, struct lsmod_struct**)
+#define MEMINFO_IOCTL _IOR('N', 4, struct sysinfo*)
+#define LSMOD_IOCTL _IOR('N', 5, struct lsmod_struct*)
 
 //TODO même header module et test sys/types.h
 struct kill_struct {
