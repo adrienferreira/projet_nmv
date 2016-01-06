@@ -1,7 +1,12 @@
-all:
-	@ echo "toto"
+all: mishell
+
+%.o: %.c
+	gcc -I../shmodule -c -o $@ $<
+
+mishell: mishell.o
+	gcc -o $@ $^
 
 clean:
-	@ echo "toto"
+	rm -rf *.o *~ mishell
 
 .PHONY: all clean
