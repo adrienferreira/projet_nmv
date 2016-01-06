@@ -1,12 +1,12 @@
-all: mishell
+all: $(SHNAME)
 
 %.o: %.c
 	gcc -I../shmodule -c -o $@ $<
 
-mishell: mishell.o
+$(SHNAME): $(SHNAME).o
 	gcc -o $@ $^
 
 clean:
-	rm -rf *.o *~ mishell
+	rm -rf *.o *~ $(SHNAME)
 
 .PHONY: all clean

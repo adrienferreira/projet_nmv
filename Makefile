@@ -1,8 +1,9 @@
 export KERNELDIR = ~/m2/nmv/linux-4.2.3
+export SHNAME = shellghoumi
 
 SRC = src
 MODSRC = $(SRC)/shmodule
-USRSRC = $(SRC)/mishell
+USRSRC = $(SRC)/$(SHNAME)
 TSTSRC = $(SRC)/test
 
 all: module usrshell test
