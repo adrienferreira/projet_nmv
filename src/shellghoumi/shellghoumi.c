@@ -95,27 +95,33 @@ int perform_kill(int argc, char **argv, int fd)
 
 int perform_lsmod(int argc, char **argv, int fd)
 {
-	int ret;
+	int ret, i;
 	struct lsmod_struct *res, *cur;
+	struct lsmod_cmd cmd = {.data = res,
+				.size = 1,
+				.async = 0};
 	
 	if (argc != 1)
 		return -EINVAL;
 
-	/* TODO: PAGE_SIZE may not be enough and uses a syscall */
-	res = malloc(getpagesize());
-	cur = res;
-
-	ret = ioctl(fd, LSMOD_IOCTL, res);
-
-	if (ret == 0) {
-		printf("Module\t\t\tSize  Used by\n");
-		while (cur->size != 0) {
-			printf("%-24s%-5u %u\n", cur->name, cur->size, cur->ref);
-			cur++;
+	cmd.data = malloc(cmd.size * sizeof(struct lsmod_struct));
+	do {
+		ret = ioctl(fd, LSMOD_IOCTL, &cmd);
+		if (ret != 0)
+			break;
+		if (!cmd.done) {
+			cmd.size += 10;
+			free(cmd.data);
+			cmd.data = malloc(cmd.size * sizeof(struct lsmod_struct));
 		}
+	} while (!cmd.done);
+
+	printf("Module\t\t\tSize  Used by\n");
+	for (i = 0; i < cmd.size; i++) {
+		printf("%-24s%-5u %u\n", cmd.data[i].name, cmd.data[i].size, cmd.data[i].ref);
 	}
 	
-	free(res);
+	free(cmd.data);
 
 	return ret;
 }
