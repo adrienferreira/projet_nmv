@@ -1,47 +1,122 @@
+#include <linux/wait.h>
+#include <linux/workqueue.h>
+#include <linux/string.h>
+
+DECLARE_WAIT_QUEUE_HEAD(lsmod_waitqueue);
+
 static long perform_lsmod(unsigned long arg);
 
-struct lsmod_list {
-	struct lsmod_struct mod;
-	struct list_head list;
+struct lsmod_work {
+	struct lsmod_struct *data;
+	unsigned int size;
+	struct list_head *head;
+	struct work_struct work;
+	bool cond;
+	bool done;
+	int async;
 };
 
-static long perform_lsmod(unsigned long arg)
+static void gather_modules(struct work_struct *work)
 {
-	int counter = 1;
-	struct lsmod_struct *buf = (struct lsmod_struct *) arg;
-	struct lsmod_struct me;
-        struct list_head *head = &(THIS_MODULE->list);
-	struct module *curs = THIS_MODULE;
-	struct lsmod_list *elt, *tmp;
-	LIST_HEAD(klist);
+	struct lsmod_work *work_args = container_of(work,
+						    struct lsmod_work, work);
+	struct module *curs = container_of(work_args->head,
+					   struct module,
+					   list);
+	struct lsmod_struct *elt;
+	unsigned int counter = 0;
+
+	elt = work_args->data;
+	work_args->done = true;
+
+	strncpy(elt->name, curs->name, MODULE_NAME_LEN);
+	elt->ref = module_refcount(curs);
+	elt->size = curs->init_size + curs->core_size;
+	elt++;
+	counter++;
 
 	/* gather inserted modules informations */
 	mutex_lock(&module_mutex);
-	list_for_each_entry_continue(curs, head, list) {
+	list_for_each_entry_continue(curs, work_args->head, list) {
+		if (counter > work_args->size)
+			work_args->done = false;
 		if (curs->name[0] != '\0') {
-			elt = kmalloc(sizeof(struct lsmod_list), GFP_KERNEL);
-			strncpy(elt->mod.name, curs->name, MODULE_NAME_LEN);
-			elt->mod.ref = module_refcount(curs);
-			elt->mod.size = curs->init_size + curs->core_size;
-			list_add(&(elt->list), &klist);
+			if (work_args->done == true) {
+				strncpy(elt->name, curs->name, MODULE_NAME_LEN);
+				elt->ref = module_refcount(curs);
+				elt->size = curs->init_size + curs->core_size;
+				elt++;
+			}
 			counter++;
 		}
 	}
 	mutex_unlock(&module_mutex);
+	work_args->size = counter;
 
-	/* copy to user-space and destroy */
-	strncpy(me.name, THIS_MODULE->name, MODULE_NAME_LEN);
-	me.size = THIS_MODULE->init_size + THIS_MODULE->core_size;
-	me.ref = module_refcount(THIS_MODULE);
-	copy_to_user(buf, &me, sizeof(me));
-	buf++;
-	list_for_each_entry_safe_reverse(elt, tmp, &klist, list) {
-		copy_to_user(buf, &(elt->mod), sizeof(struct lsmod_struct));
-		buf++;
-		list_del(&(elt->list));
-		kfree(elt);
+	if (!work_args->async) {
+		work_args->cond = true;
+		wake_up(&lsmod_waitqueue);
 	}
-	copy_to_user(buf->name, "", sizeof(char));
+}
 
-	return 0;
+static long perform_lsmod(unsigned long arg)
+{
+	struct lsmod_cmd *cmd = (struct lsmod_cmd *) arg;
+	struct lsmod_cmd *kcmd = kmalloc(sizeof(struct lsmod_cmd), GFP_KERNEL);
+	struct lsmod_work *work = kmalloc(sizeof(struct lsmod_work),
+					  GFP_KERNEL);
+	struct lsmod_struct *buf;
+	long ret = 0;
+
+	if (copy_from_user(kcmd, cmd, sizeof(struct lsmod_cmd)) != 0) {
+		ret = -EFAULT;
+		goto copy_fail;
+	}
+
+	work->size = kcmd->size;
+	if (work->size == 0)
+		goto no_kmalloc;
+
+	buf = kmalloc(work->size, sizeof(struct lsmod_struct), GFP_KERNEL);
+	if (IS_ERR(buf)) {
+		ret = PTR_ERR(buf);
+		goto copy_fail;
+	}
+	if (buf == NULL) {
+		ret = -EFAULT;
+		goto copy_fail;
+	}
+	work->data = buf;
+no_kmalloc:
+	work->head = &(THIS_MODULE->list);
+	INIT_WORK(&(work->work), gather_modules);
+	work->async = kcmd->async;
+	work->cond = false;
+
+	schedule_work(&(work->work));
+
+	if (kcmd->async)
+		return ret;
+
+	wait_event(lsmod_waitqueue, work->cond);
+
+	/* copy to user-space */
+	kcmd->done = work->done;
+	kcmd->size = work->size;
+	if (kcmd->done) {
+		if (copy_to_user(kcmd->data,
+				 work->data,
+				 work->size * sizeof(struct lsmod_struct)) != 0)
+			ret = -EFAULT;
+	}
+	if (copy_to_user(cmd, kcmd, sizeof(struct lsmod_cmd)) != 0)
+		ret = -EFAULT;
+
+	/* free memory */
+	kfree(work->data);
+copy_fail:
+	kfree(kcmd);
+	kfree(work);
+
+	return ret;
 }
