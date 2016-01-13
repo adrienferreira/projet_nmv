@@ -30,4 +30,11 @@ struct lsmod_struct {
 	unsigned int ref;
 };
 
+struct lsmod_cmd {
+	struct lsmod_struct *data;
+	unsigned int size;
+	int done;
+	int async;
+};
+
 #endif
