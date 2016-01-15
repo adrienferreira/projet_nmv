@@ -27,19 +27,10 @@ static struct file_operations fops = {
 	.unlocked_ioctl = perform_ioctl
 };
 
-struct pend_result{	
-	struct list_head list;
-	unsigned long id_pend;
-	void* data;
-	bool done;
-};
-
 static DEFINE_MUTEX(mutex_pend_results);
 static struct list_head lst_pend_results;
 static long cur_id_pend;
 
-static long add_pending_result(void);
-static struct pend_result* get_result(long id);
 
 static int shmodule_init(void)
 {	
