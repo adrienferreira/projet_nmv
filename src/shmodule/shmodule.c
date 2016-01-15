@@ -85,19 +85,19 @@ static long perform_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
 	}
 }
 
-static long add_pending_result()
+static struct pend_result* add_pending_result()
 {
 	struct pend_result *pr;
 	
-	pr = (struct pend_result*)kmalloc(sizeof(struct pend_result), GFP_KERNEL);
+	pr = kmalloc(sizeof(struct pend_result), GFP_KERNEL);
 
-	if (pr == NULL){
+	if (pr == NULL) {
 		pr_warn("Impossible to allocate space to store the result");
-		return -ENOMEM;
+		return NULL;
 	}
 
 	INIT_LIST_HEAD(&(pr->list));
-	pr->data=NULL;
+	pr->data = NULL;
 	pr->done = false;
 
 	mutex_lock(&mutex_pend_results);
@@ -105,7 +105,7 @@ static long add_pending_result()
 	list_add_tail(&(pr->list), &lst_pend_results);
 	mutex_unlock(&mutex_pend_results);
 
-	return pr->id_pend;
+	return pr;
 }
 
 static struct pend_result* get_result(long id)
