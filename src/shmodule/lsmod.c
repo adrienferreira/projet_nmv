@@ -26,6 +26,7 @@ static void gather_modules(struct work_struct *work)
 	struct lsmod_struct *elt;
 	unsigned int counter = 0;
 
+	pr_warn("lsmod_worker (l. %d) : start\n", __LINE__);
 	elt = work_args->data;
 	work_args->done = true;
 
@@ -56,7 +57,9 @@ static void gather_modules(struct work_struct *work)
 	if (!work_args->async) {
 		work_args->cond = true;
 		wake_up(&lsmod_waitqueue);
+		pr_warn("lsmod_worker (l. %d) : wake_up()\n", __LINE__);
 	}
+	pr_warn("lsmod_worker (l. %d) : end\n", __LINE__);
 }
 
 static long perform_lsmod(unsigned long arg)
@@ -74,10 +77,13 @@ static long perform_lsmod(unsigned long arg)
 	}
 
 	work->size = kcmd->size;
+	pr_warn("lsmod_ioctl (l. %d) : kcmd->size = %u\n",
+		__LINE__, work->size);
 	if (work->size == 0)
 		goto no_kmalloc;
 
-	buf = kmalloc_array(work->size, sizeof(struct lsmod_struct), GFP_KERNEL);
+	buf = kmalloc_array(work->size, sizeof(struct lsmod_struct),
+			    GFP_KERNEL);
 	if (IS_ERR(buf)) {
 		ret = PTR_ERR(buf);
 		goto copy_fail;
@@ -86,6 +92,7 @@ static long perform_lsmod(unsigned long arg)
 		ret = -EFAULT;
 		goto copy_fail;
 	}
+	pr_warn("lsmod_ioctl (l. %d) : &buf = 0x%p\n", __LINE__, buf);
 	work->data = buf;
 no_kmalloc:
 	work->head = &(THIS_MODULE->list);
@@ -98,20 +105,29 @@ no_kmalloc:
 	if (kcmd->async)
 		return ret;
 
+	pr_warn("lsmod_ioctl (l. %d) : schedule_work()\n", __LINE__);
+	schedule_work(&(work->work));
+	pr_warn("lsmod_ioctl (l. %d) : wait_event()\n", __LINE__);
 	wait_event(lsmod_waitqueue, work->cond);
+	pr_warn("lsmod_ioctl (l. %d) : woke up\n", __LINE__);
 
+	pr_warn("lsmod_ioctl (l. %d) : copy to user space\n", __LINE__);
 	/* copy to user-space */
 	kcmd->done = work->done;
 	kcmd->size = work->size;
 	if (kcmd->done) {
-		if (copy_to_user(kcmd->data,
-				 work->data,
-				 work->size * sizeof(struct lsmod_struct)) != 0)
+		pr_warn("lsmod_ioctl (l. %d) : done! (copy %u elements)\n",
+			__LINE__, kcmd->size);
+		if (copy_to_user(kcmd->data, work->data, work->size
+				 * sizeof(struct lsmod_struct)) != 0) {
 			ret = -EFAULT;
+			goto return_fail;
+		}
 	}
 	if (copy_to_user(cmd, kcmd, sizeof(struct lsmod_cmd)) != 0)
 		ret = -EFAULT;
 
+return_fail:
 	/* free memory */
 	kfree(work->data);
 copy_fail:
