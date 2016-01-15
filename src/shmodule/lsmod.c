@@ -77,7 +77,7 @@ static long perform_lsmod(unsigned long arg)
 	if (work->size == 0)
 		goto no_kmalloc;
 
-	buf = kmalloc(work->size, sizeof(struct lsmod_struct), GFP_KERNEL);
+	buf = kmalloc_array(work->size, sizeof(struct lsmod_struct), GFP_KERNEL);
 	if (IS_ERR(buf)) {
 		ret = PTR_ERR(buf);
 		goto copy_fail;
