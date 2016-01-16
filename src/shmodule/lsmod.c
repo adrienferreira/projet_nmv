@@ -112,7 +112,7 @@ no_kmalloc:
 		work->pend_res = pend_res;
 		if (copy_to_user(cmd,
 				 kcmd,
-				 sizeof(kcmd)) != 0) {
+				 sizeof(struct lsmod_cmd)) != 0) {
 			ret = -EFAULT;
 		}
 		pr_warn("lsmod_ioctl (l. %d) : schedule_work()\n", __LINE__);
