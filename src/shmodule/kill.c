@@ -1,6 +1,15 @@
-static long perform_kill(unsigned long arg);
+#include <linux/module.h>
+#include <linux/slab.h>
+#include <asm/uaccess.h>
+#include <linux/pid.h>
+#include <linux/sched.h>
 
-static long perform_kill(unsigned long arg)
+#include "shmodule.h"
+#include "structs.h"
+#include "kill.h"
+
+
+long perform_kill(unsigned long arg)
 {
 	struct kill_struct usr_struct;
 	struct pid *dest_pid;

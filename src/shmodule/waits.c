@@ -1,26 +1,40 @@
-#define CHECK_FREQUENCY (1 * HZ)
+#include <linux/module.h>
+#include <linux/wait.h>
+#include <linux/slab.h>
+#include <asm/uaccess.h>
+#include <linux/pid.h>
+#include <linux/sched.h>
 
-static long perform_gen_wait(unsigned long arg, int is_waitall);
-static void gen_wait_work(struct work_struct*param_ws);
+#include "shmodule.h"
+#include "structs.h"
+#include "waits.h"
 
-struct gen_wait_struct 
-{
-	//pids to wait
-	int nb_pid;
-	struct task_struct **tasks;
-
-	//generic wait/waitall
-	atomic_t nb_finished;
-	int nb_to_wait;
-
-	//re-schecdule autonomously
-	unsigned long check_freq;
-	struct delayed_work dws;
-};
 
 static struct gen_wait_struct gws;
 
-static long perform_gen_wait(unsigned long arg, int is_waitall)
+
+static void gen_wait_work(struct work_struct*param_ws)
+{
+	struct gen_wait_struct *param_gws;
+	int cur_fin, cur_nb_wait;
+	int icp;
+
+	param_gws = container_of(param_ws, struct gen_wait_struct, dws.work);
+	cur_nb_wait=param_gws->nb_to_wait;
+	cur_fin=0;
+
+	for (icp = 0; icp <(param_gws->nb_pid); icp++)
+		if(! (pid_alive(param_gws->tasks[icp])) )
+			cur_fin++;
+
+	pr_warn("Process finished %d/%d\n", cur_fin, cur_nb_wait);
+	atomic_set(&(param_gws->nb_finished), cur_fin);
+
+	if(cur_fin < cur_nb_wait)
+		schedule_delayed_work(&(param_gws->dws), param_gws->check_freq);	
+}
+
+long perform_gen_wait(unsigned long arg, int is_waitall)
 {
 	struct gen_wait_usr_struct usr_struct;
 	unsigned int icp;//ind cur pid
@@ -84,25 +98,4 @@ static long perform_gen_wait(unsigned long arg, int is_waitall)
 	alloc_pids_fail:
 	copy_waitall_struct_fail:
 	return 1;
-}
-
-static void gen_wait_work(struct work_struct*param_ws)
-{
-	struct gen_wait_struct *param_gws;
-	int cur_fin, cur_nb_wait;
-	int icp;
-
-	param_gws = container_of(param_ws, struct gen_wait_struct, dws.work);
-	cur_nb_wait=param_gws->nb_to_wait;
-	cur_fin=0;
-
-	for (icp = 0; icp <(param_gws->nb_pid); icp++)
-		if(! (pid_alive(param_gws->tasks[icp])) )
-			cur_fin++;
-
-	pr_warn("Process finished %d/%d\n", cur_fin, cur_nb_wait);
-	atomic_set(&(param_gws->nb_finished), cur_fin);
-
-	if(cur_fin < cur_nb_wait)
-		schedule_delayed_work(&(param_gws->dws), param_gws->check_freq);	
 }

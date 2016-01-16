@@ -1,20 +1,18 @@
 #include <linux/wait.h>
 #include <linux/workqueue.h>
 #include <linux/string.h>
+#include <linux/module.h>
+#include <linux/wait.h>
+#include <linux/sched.h>
+#include <linux/slab.h>
+#include <asm/uaccess.h>
+
+#include "shmodule.h"
+#include "structs.h"
+#include "lsmod.h"
+
 
 DECLARE_WAIT_QUEUE_HEAD(lsmod_waitqueue);
-
-static long perform_lsmod(unsigned long arg);
-
-struct lsmod_work {
-	struct lsmod_struct *data;
-	unsigned int size;
-	struct list_head *head;
-	struct work_struct work;
-	bool cond;
-	bool done;
-	int async;
-};
 
 static void gather_modules(struct work_struct *work)
 {
@@ -58,17 +56,25 @@ static void gather_modules(struct work_struct *work)
 		work_args->cond = true;
 		wake_up(&lsmod_waitqueue);
 		pr_warn("lsmod_worker (l. %d) : wake_up()\n", __LINE__);
+	} else {
+		work_args->pend_res->data = work_args->data;
+		work_args->pend_res->size = counter * sizeof(struct lsmod_struct);
+		work_args->pend_res->ioctl_nr = LSMOD_IOCTL;
+		work_args->pend_res->done = true;
+		wake_up(&return_waitqueue);
+		pr_warn("lsmod_worker (l. %d) : wake_up()\n", __LINE__);
 	}
 	pr_warn("lsmod_worker (l. %d) : end\n", __LINE__);
 }
 
-static long perform_lsmod(unsigned long arg)
+long perform_lsmod(unsigned long arg)
 {
 	struct lsmod_cmd *cmd = (struct lsmod_cmd *) arg;
 	struct lsmod_cmd *kcmd = kmalloc(sizeof(struct lsmod_cmd), GFP_KERNEL);
 	struct lsmod_work *work = kmalloc(sizeof(struct lsmod_work),
 					  GFP_KERNEL);
 	struct lsmod_struct *buf;
+	struct pend_result *pend_res;
 	long ret = 0;
 
 	if (copy_from_user(kcmd, cmd, sizeof(struct lsmod_cmd)) != 0) {
@@ -92,7 +98,6 @@ static long perform_lsmod(unsigned long arg)
 		ret = -EFAULT;
 		goto copy_fail;
 	}
-	pr_warn("lsmod_ioctl (l. %d) : &buf = 0x%p\n", __LINE__, buf);
 	work->data = buf;
 no_kmalloc:
 	work->head = &(THIS_MODULE->list);
@@ -100,10 +105,21 @@ no_kmalloc:
 	work->async = kcmd->async;
 	work->cond = false;
 
-	schedule_work(&(work->work));
+	if (kcmd->async) {
+		pend_res = add_pending_result();
+		kcmd->id_pend = pend_res->id_pend;
+		kcmd->done = 1;
+		work->pend_res = pend_res;
+		if (copy_to_user(cmd,
+				 kcmd,
+				 sizeof(kcmd)) != 0) {
+			ret = -EFAULT;
+		}
+		pr_warn("lsmod_ioctl (l. %d) : schedule_work()\n", __LINE__);
+		schedule_work(&(work->work));
 
-	if (kcmd->async)
 		return ret;
+	}
 
 	pr_warn("lsmod_ioctl (l. %d) : schedule_work()\n", __LINE__);
 	schedule_work(&(work->work));
