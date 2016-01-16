@@ -3,7 +3,8 @@
 
 ifneq ($(KERNELRELEASE),)
 
-  obj-m := shmodule.o
+  obj-m := shmod.o
+  shmod-objs := return.o lsmod.o waits.o kill.o meminfo.o shmodule.o
 
 else
 

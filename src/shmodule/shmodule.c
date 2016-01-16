@@ -10,13 +10,15 @@
 #include <linux/mm.h>
 #include <linux/swap.h>
 #include <asm-generic/errno-base.h>
+#include <linux/wait.h>
 
 #include "structs.h"
 #include "shmodule.h"
-#include "kill.c"
-#include "waits.c"
-#include "lsmod.c"
-#include "meminfo.c"
+#include "kill.h"
+#include "waits.h"
+#include "lsmod.h"
+#include "meminfo.h"
+#include "return.h"
 
 MODULE_DESCRIPTION("sh helper module");
 MODULE_AUTHOR("Redha Adrien");
@@ -27,9 +29,10 @@ static struct file_operations fops = {
 	.unlocked_ioctl = perform_ioctl
 };
 
-static DEFINE_MUTEX(mutex_pend_results);
+DEFINE_MUTEX(mutex_pend_results);
 static struct list_head lst_pend_results;
 static long cur_id_pend;
+DECLARE_WAIT_QUEUE_HEAD(return_waitqueue);
 
 
 static int shmodule_init(void)
@@ -58,7 +61,7 @@ static void shmodule_exit(void)
 }
 module_exit(shmodule_exit);
 
-static long perform_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+long perform_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	switch (cmd) {
 	case KILL_IOCTL:
@@ -71,12 +74,14 @@ static long perform_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
 		return perform_gen_wait(arg, 0);
 	case MEMINFO_IOCTL:
 		return perform_meminfo(arg);
+	case RETURN_IOCTL:
+		return perform_return(arg);
 	default:
 		return -ENOTTY;
 	}
 }
 
-static struct pend_result* add_pending_result()
+struct pend_result* add_pending_result()
 {
 	struct pend_result *pr;
 	
@@ -99,7 +104,7 @@ static struct pend_result* add_pending_result()
 	return pr;
 }
 
-static struct pend_result* get_result(long id)
+struct pend_result* get_result(long id)
 {
 	struct pend_result *pr;
 
