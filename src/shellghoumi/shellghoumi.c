@@ -9,12 +9,12 @@
 #include <errno.h>
 #include <sys/ioctl.h>
 
-#include "shellghoumi.h"
 #include "structs.h"
+#include "shellghoumi.h"
 
 int main(int argc, char **argv)
 {
-	int f, ret;
+	int f, ret, async = 0;
 	enum commands cmd;
 
 	if (argc < 2) {
@@ -22,7 +22,10 @@ int main(int argc, char **argv)
 		return EXIT_SUCCESS;
 	}
 
-	cmd = get_cmd(argv[1]);
+	if (strcmp(argv[1], "-b") == 0)
+		async = 1;
+
+	cmd = get_cmd(argv[async + 1]);
 
 	if (cmd == HELP) {
 		PRINT_USAGE;
@@ -36,22 +39,29 @@ int main(int argc, char **argv)
 	}
 
 	f = open("/dev/"CHRDEV_NAME, S_IWUSR);
+	if (f == -1) {
+		perror("open(/dev/"CHRDEV_NAME") failed\n");
+		return EXIT_FAILURE;
+	}
 
 	switch (cmd) {
 	case KILL:
-		ret = perform_kill(argc - 1, argv + 1, f);
+		ret = perform_kill(argc - 1 - async, argv + 1 + async, f, async);
 		break;
 	case WAIT:
-		ret = perform_wait(argc - 1, argv + 1, f);
+		ret = perform_wait(argc - 1 - async, argv + 1 + async, f, async);
 		break;
 	case WAITALL:
-		ret = perform_waitall(argc - 1, argv + 1, f);
+		ret = perform_waitall(argc - 1 - async, argv + 1 + async, f, async);
 		break;
 	case PRINT:
-		ret = perform_print(argc - 1, argv + 1, f);
+		ret = perform_print(argc - 1 - async, argv + 1 + async, f, async);
 		break;
 	case LSMOD:
-		ret = perform_lsmod(argc - 1, argv + 1, f);
+		ret = perform_lsmod(argc - 1 - async, argv + 1 + async, f, async);
+		break;
+	case RETURN:
+		ret = perform_return(argc - 1 - async, argv + 1 + async, f);
 		break;
 	}		
 
@@ -72,12 +82,14 @@ enum commands get_cmd(char *string)
 		return PRINT;
 	if (strcmp(string, "lsmod") == 0)
 		return LSMOD;
+	if (strcmp(string, "return") == 0)
+		return RETURN;
 	if (strcmp(string, "help") == 0)
 		return HELP;
 	return UNKNOWN;
 }
 
-int perform_kill(int argc, char **argv, int fd)
+int perform_kill(int argc, char **argv, int fd, int async)
 {
 	struct kill_struct ks;
 	int ret;
@@ -93,21 +105,27 @@ int perform_kill(int argc, char **argv, int fd)
 	return ret;
 }
 
-int perform_lsmod(int argc, char **argv, int fd)
+int perform_lsmod(int argc, char **argv, int fd, int async)
 {
 	int ret, i;
-	struct lsmod_struct *res, *cur;
+	struct lsmod_struct *res = NULL;
 	struct lsmod_cmd cmd = {.data = res,
-				.size = 1,
-				.async = 0};
+				.size = 10,
+				.async = async};
 	
 	if (argc != 1)
 		return -EINVAL;
 
-	cmd.data = malloc(cmd.size * sizeof(struct lsmod_struct));
+	if (!async) {
+		cmd.data = malloc(cmd.size * sizeof(struct lsmod_struct));
+		if (cmd.data == NULL) {
+			perror("lsmod malloc() failed\n");
+			return errno;
+		}
+	}
 	do {
 		ret = ioctl(fd, LSMOD_IOCTL, &cmd);
-		if (ret != 0)
+		if (ret != 0 || cmd.async)
 			break;
 		if (!cmd.done) {
 			cmd.size += 10;
@@ -116,17 +134,19 @@ int perform_lsmod(int argc, char **argv, int fd)
 		}
 	} while (!cmd.done);
 
-	printf("Module\t\t\tSize  Used by\n");
-	for (i = 0; i < cmd.size; i++) {
-		printf("%-24s%-5u %u\n", cmd.data[i].name, cmd.data[i].size, cmd.data[i].ref);
+	if (!async) {
+		print_modules(cmd.data, cmd.size);
+		free(cmd.data);
+	} else {
+		printf("Async call got number %ld \n", cmd.id_pend);
+		printf("Reclaim result with 'return %ld %lu' command\n",
+		       cmd.id_pend, cmd.size * sizeof(struct lsmod_struct));
 	}
-	
-	free(cmd.data);
 
 	return ret;
 }
 
-int perform_print(int argc, char **argv, int fd)
+int perform_print(int argc, char **argv, int fd, int async)
 {
 	int ret;
 	enum print_commands cmd;
@@ -218,7 +238,7 @@ void wait_build_struct(int argc, char*argv[], struct gen_wait_usr_struct *gwus)
 		gwus->pids[i] = (pid_t)atoi(argv[i+1]);
 }
 
-int perform_wait(int argc, char **argv, int fd)
+int perform_wait(int argc, char **argv, int fd, int async)
 {
 	struct gen_wait_usr_struct gwus; 
 	
@@ -232,7 +252,7 @@ int perform_wait(int argc, char **argv, int fd)
 	return ioctl(fd, WAIT_IOCTL, &gwus);
 }
 
-int perform_waitall(int argc, char **argv, int fd)
+int perform_waitall(int argc, char **argv, int fd, int async)
 {
 	struct gen_wait_usr_struct gwus; 
 	
@@ -246,4 +266,41 @@ int perform_waitall(int argc, char **argv, int fd)
 	return ioctl(fd, WAITALL_IOCTL, &gwus);
 }
 
+int perform_return(int argc, char **argv, int fd)
+{
+	long ret = 0;
+	struct return_cmd cmd;
 
+	if (argc != 3) {
+		printf("Usage: %s return <id> <size>\n", argv[-1]);
+		exit(EXIT_FAILURE);
+	}
+
+	cmd.id_pend = strtol(argv[1], NULL, 10);
+	cmd.size = (unsigned int) strtoul(argv[2], NULL, 10);
+	cmd.data = malloc(cmd.size);
+
+	ret = ioctl(fd, RETURN_IOCTL, &cmd);
+	if (ret != 0)
+		goto ret_free;
+	switch (cmd.ioctl_nr) {
+	case LSMOD_IOCTL:
+		print_modules((struct lsmod_struct*)cmd.data, cmd.size / sizeof(struct lsmod_struct));
+		break;
+	}
+
+ret_free:
+	free(cmd.data);
+
+	return ret;
+}
+
+void print_modules(struct lsmod_struct *data, unsigned int size)
+{
+	int i;
+
+	printf("Module\t\t\tSize  Used by\n");
+	for (i = 0; i < size; i++) {
+		printf("%-24s%-5u %u\n", data[i].name, data[i].size, data[i].ref);
+	}
+}
