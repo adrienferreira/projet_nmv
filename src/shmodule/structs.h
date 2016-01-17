@@ -43,6 +43,12 @@ struct lsmod_cmd {
 	int async;
 };
 
+struct meminfo_cmd {
+	struct sysinfo *data;
+	long id_pend;
+	int async;
+};
+
 struct return_cmd {
 	long id_pend;
 	void *data;
