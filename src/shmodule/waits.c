@@ -14,7 +14,7 @@ long perform_gen_wait(unsigned long arg, int is_waitall)
 {
 	int ret;
 	struct gen_wait_usr_struct usr_struct;
-	unsigned int icp;//ind cur pid
+	unsigned int icp, j;//ind cur pid
 	pid_t *usr_pids_ptr;
 	struct gen_wait_struct *gws;
 	struct pend_result *pr;
@@ -91,6 +91,7 @@ long perform_gen_wait(unsigned long arg, int is_waitall)
 			schedule();
 
 		ret = nb_proc_finished;
+		goto free_all;
 	}
 	else{
 		pr = add_pending_result();
@@ -110,19 +111,31 @@ long perform_gen_wait(unsigned long arg, int is_waitall)
 			goto pr_data_alloc_fail;
 		}
 
+		pr_warn("Envoi du numero de ticket\n");
+
+		if (copy_to_user(&(((struct gen_wait_usr_struct*)arg)->id_pend), &(pr->id_pend), sizeof(unsigned long)))
+		{
+			pr_warn("Cannot transfert id_pend to user space\n");
+			ret = -EFAULT;
+			goto copy_id_pend_fail;
+		}
+		
 		gws->pr = pr;
-		ret = pr->id_pend;
+		kfree(usr_struct.pids);
 	}
 
 	final_return:
 	return ret;
 
+	free_all:
+	copy_id_pend_fail:
 	pr_data_alloc_fail:
 	add_pend_res_fail:
 	pid_not_found_fail:
-	//TODO ???
-	//for(; icp>=0 && (gws.tasks[icp]); icp--)
-	//	put_task_struct(gws.tasks[icp]);
+	for(j=0; j<icp; j++)
+		if(gws->tasks[j])
+			put_task_struct(gws->tasks[j]);
+
 	kfree(gws->tasks);
 	alloc_gws_fail:
 	copy_pids_fail:
@@ -135,7 +148,7 @@ long perform_gen_wait(unsigned long arg, int is_waitall)
 
 
 void gen_wait_work(struct work_struct*param_gws)
-{//TODO put pid 
+{ 
 	struct gen_wait_struct *gws;
 	int cur_fin, cur_nb_wait;
 	int icp;
@@ -151,12 +164,20 @@ void gen_wait_work(struct work_struct*param_gws)
 	pr_warn("Process finished %d/%d\n", cur_fin, cur_nb_wait);
 	atomic_set(&(gws->nb_finished), cur_fin);
 
-	if(cur_fin < cur_nb_wait)
+	if(cur_fin < cur_nb_wait){
 		schedule_delayed_work(&(gws->dws), gws->check_freq);
+	}
+	else
+	{
+		if(gws->pr)
+		{
+			for (icp = 0; icp <(gws->nb_pid); icp++)
+				put_task_struct(gws->tasks[icp]);
 
-	if(gws->pr){
-		*((int*)gws->pr->data) = cur_fin;
-		gws->pr->done = (cur_fin >= cur_nb_wait);
+			kfree(gws->tasks);
+			*((int*)gws->pr->data) = cur_fin;
+			gws->pr->done = 1;
+		}
 	}
 
 	wake_up(&return_waitqueue);

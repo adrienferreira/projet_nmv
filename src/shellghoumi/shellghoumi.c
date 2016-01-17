@@ -105,7 +105,13 @@ int perform_kill(int argc, char **argv, int fd, int async)
 	ks.id_pend = -1;
 
 	ret = ioctl(fd, KILL_IOCTL, &ks);
-	printf("Ticket : %lu \n", ks.id_pend);
+
+	if(async)
+	{
+		printf("Async call got number %ld \n", ks.id_pend);
+		printf("Reclaim result with 'return %ld %lu' command\n",
+		       ks.id_pend, sizeof(long));
+	}
 
 	return ret;
 }
@@ -244,12 +250,19 @@ int perform_wait(int argc, char **argv, int fd, int async)
 		printf("Usage : ./prog <pid1>, ..., <pidN>\n");
 		exit(EXIT_FAILURE);
 	}
-	
+
 	gwus.async = async;
 	gwus.id_pend = -1;
 	wait_build_struct(argc, argv, &gwus);
 	ret= ioctl(fd, WAIT_IOCTL, &gwus);
-	printf("Ticket : %d \n", ret);
+
+	if(async)
+	{
+		printf("Async call got number %ld \n", gwus.id_pend);
+		printf("Reclaim result with 'return %ld %lu' command\n",
+		       gwus.id_pend, sizeof(int));
+	}
+
 	return ret;
 }
 
@@ -263,12 +276,19 @@ int perform_waitall(int argc, char **argv, int fd, int async)
 		printf("Usage : ./prog <pid1>, ..., <pidN>\n");
 		exit(EXIT_FAILURE);
 	}
-	
+
 	gwus.async = async;
 	gwus.id_pend = -1;
 	wait_build_struct(argc, argv, &gwus);
 	ret= ioctl(fd, WAITALL_IOCTL, &gwus);
-	printf("Ticket : %d \n", ret);
+
+	if(async)
+	{
+		printf("Async call got number %ld \n", gwus.id_pend);
+		printf("Reclaim result with 'return %ld %lu' command\n",
+		       gwus.id_pend, sizeof(int));
+	}
+
 	return ret;
 }
 
