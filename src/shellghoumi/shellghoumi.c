@@ -171,10 +171,10 @@ int perform_print(int argc, char **argv, int fd, int async)
 	}
 	switch (cmd) {
 	case MEMINFO:
-		ret = perform_print_meminfo(fd);
+		ret = perform_print_meminfo(fd, async);
 		break;
 	case CPUINFO:
-		ret = perform_print_cpuinfo(fd);
+		ret = perform_print_cpuinfo(fd, async);
 		break;
 	}
 
@@ -192,36 +192,27 @@ enum print_commands get_print_cmd(char *string)
 	return P_UNKNOWN;
 }
 
-int perform_print_meminfo(int fd)
+int perform_print_meminfo(int fd, int async)
 {
 	struct sysinfo meminfo;
-	unsigned int unit;
-	int ret;
+	struct meminfo_cmd cmd = {.data = &meminfo,
+				  .async = async};
+	int ret = 0;
 
-	ret = ioctl(fd, MEMINFO_IOCTL, &meminfo);
+	ret = ioctl(fd, MEMINFO_IOCTL, &cmd);
 
-	if (ret == 0) {
-		unit = meminfo.mem_unit / 1024;
-		printf("MemTotal:     %8lu kB\n"
-		       "MemFree:      %8lu kB\n"
-		       "MemAvailable: %8lu kB\n"      /* complicated, see fs/proc/meminfo.c */
-		       "Buffers:      %8lu kB\n"
-		       "SwapTotal:    %8lu kB\n"
-		       "SwapFree:     %8lu kB\n"
-		       "Shmem:        %8lu kB\n",
-		       meminfo.totalram * unit,
-		       meminfo.freeram  * unit,
-		       (long unsigned int) 0,
-		       meminfo.bufferram * unit,
-		       meminfo.totalswap * unit,
-		       meminfo.freeswap * unit,
-		       meminfo.sharedram * unit);
+	if (!async)
+		print_meminfo(&meminfo);
+	else {
+		printf("Async call got number %ld \n", cmd.id_pend);
+		printf("Reclaim result with 'return %ld %lu' command\n",
+		       cmd.id_pend, sizeof(struct sysinfo));
 	}
 
 	return ret;
 }
 
-int perform_print_cpuinfo(int fd)
+int perform_print_cpuinfo(int fd, int async)
 {
 	printf("Work in progress\n");
 	return 0;
@@ -309,6 +300,9 @@ int perform_return(int argc, char **argv, int fd)
 	case WAITALL_IOCTL:
 		printf("Return wait : %d\n", *((int*)cmd.data));
 		break;
+	case MEMINFO_IOCTL:
+		print_meminfo((struct sysinfo *)cmd.data);
+		break;
 	}
 
 ret_free:
@@ -325,4 +319,25 @@ void print_modules(struct lsmod_struct *data, unsigned int size)
 	for (i = 0; i < size; i++) {
 		printf("%-24s%-5u %u\n", data[i].name, data[i].size, data[i].ref);
 	}
+}
+
+void print_meminfo(struct sysinfo *meminfo)
+{
+	unsigned int unit;
+
+	unit = meminfo->mem_unit / 1024;
+	printf("MemTotal:     %8lu kB\n"
+	       "MemFree:      %8lu kB\n"
+	       "MemAvailable: %8lu kB\n"      /* complicated, see fs/proc/meminfo.c */
+	       "Buffers:      %8lu kB\n"
+	       "SwapTotal:    %8lu kB\n"
+	       "SwapFree:     %8lu kB\n"
+	       "Shmem:        %8lu kB\n",
+	       meminfo->totalram * unit,
+	       meminfo->freeram  * unit,
+	       (long unsigned int) 0,
+	       meminfo->bufferram * unit,
+	       meminfo->totalswap * unit,
+	       meminfo->freeswap * unit,
+	       meminfo->sharedram * unit);
 }

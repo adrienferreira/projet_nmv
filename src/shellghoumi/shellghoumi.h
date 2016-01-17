@@ -41,4 +41,6 @@ int perform_return(int argc, char **args, int fd);
 
 void print_modules(struct lsmod_struct *data, unsigned int size);
 
+void print_meminfo(struct sysinfo *meminfo);
+
 #endif
