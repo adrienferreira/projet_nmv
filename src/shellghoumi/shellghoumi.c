@@ -94,13 +94,18 @@ int perform_kill(int argc, char **argv, int fd, int async)
 	struct kill_struct ks;
 	int ret;
 
-	if (argc != 2)
-		return -EINVAL;
+	if (argc != 3){
+		printf("Usage : ./prog <pid> <num_sig>\n");
+		exit(EXIT_FAILURE);
+	}
 
 	ks.pid = atoi(argv[1]);
 	ks.sig = atoi(argv[2]);
+	ks.async = async;
+	ks.id_pend = -1;
 
 	ret = ioctl(fd, KILL_IOCTL, &ks);
+	printf("Ticket : %lu \n", ks.id_pend);
 
 	return ret;
 }
@@ -241,6 +246,7 @@ void wait_build_struct(int argc, char*argv[], struct gen_wait_usr_struct *gwus)
 int perform_wait(int argc, char **argv, int fd, int async)
 {
 	struct gen_wait_usr_struct gwus; 
+	int ret;
 	
 	if(argc == 1)
 	{
@@ -248,13 +254,18 @@ int perform_wait(int argc, char **argv, int fd, int async)
 		exit(EXIT_FAILURE);
 	}
 	
+	gwus.async = async;
+	gwus.id_pend = -1;
 	wait_build_struct(argc, argv, &gwus);
-	return ioctl(fd, WAIT_IOCTL, &gwus);
+	ret= ioctl(fd, WAIT_IOCTL, &gwus);
+	printf("Ticket : %d \n", ret);
+	return ret;
 }
 
 int perform_waitall(int argc, char **argv, int fd, int async)
 {
 	struct gen_wait_usr_struct gwus; 
+	int ret;
 	
 	if(argc == 1)
 	{
@@ -262,8 +273,12 @@ int perform_waitall(int argc, char **argv, int fd, int async)
 		exit(EXIT_FAILURE);
 	}
 	
+	gwus.async = async;
+	gwus.id_pend = -1;
 	wait_build_struct(argc, argv, &gwus);
-	return ioctl(fd, WAITALL_IOCTL, &gwus);
+	ret= ioctl(fd, WAITALL_IOCTL, &gwus);
+	printf("Ticket : %d \n", ret);
+	return ret;
 }
 
 int perform_return(int argc, char **argv, int fd)
@@ -286,6 +301,13 @@ int perform_return(int argc, char **argv, int fd)
 	switch (cmd.ioctl_nr) {
 	case LSMOD_IOCTL:
 		print_modules((struct lsmod_struct*)cmd.data, cmd.size / sizeof(struct lsmod_struct));
+		break;
+	case KILL_IOCTL:
+		printf("Return kill : %ld\n", *((long*)cmd.data));
+		break;
+	case WAIT_IOCTL:
+	case WAITALL_IOCTL:
+		printf("Return wait : %d\n", *((int*)cmd.data));
 		break;
 	}
 
