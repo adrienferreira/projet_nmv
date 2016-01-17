@@ -30,12 +30,10 @@ long perform_kill(unsigned long arg)
 
 	if(!usr_struct.async)
 	{
-		pr_warn("Mode synchrone \n");
 		return _perform_kill(usr_struct.pid, usr_struct.sig);
 	}
 	else
 	{
-		pr_warn("Mode asynchrone\n");
 		dk = (struct delayed_kill*) kmalloc(sizeof(struct delayed_kill), GFP_KERNEL);
 	
 		if(dk == NULL)
@@ -45,7 +43,6 @@ long perform_kill(unsigned long arg)
 		}
 
 		pr = add_pending_result();
-		pr_warn("Ticket : %ld \n", pr->id_pend);
 
 		if(pr == NULL){
 			ret = -ENOMEM;
@@ -65,8 +62,6 @@ long perform_kill(unsigned long arg)
 		dk->pid = usr_struct.pid;
 		dk->sig = usr_struct.sig;
 
-		pr_warn("Envoi du numero de ticket\n");
-
 		if (copy_to_user(&(((struct kill_struct*)arg)->id_pend), &(pr->id_pend), sizeof(unsigned long)))
 		{
 			pr_warn("Cannot transfert id_pend to user space\n");
@@ -74,7 +69,6 @@ long perform_kill(unsigned long arg)
 			goto copy_id_pend_fail;
 		}
 
-		pr_warn("Lancement du work\n");
 		INIT_WORK(&(dk->ws), kill_work);
 		schedule_work(&(dk->ws));	
 	}
@@ -95,10 +89,8 @@ void kill_work(struct work_struct* pws)
 {
 	struct delayed_kill *dk;
 
-	pr_warn("Work Kill asynchrone\n");
 	dk = container_of(pws, struct delayed_kill, ws);
 	*((long*)(dk->pr->data)) = _perform_kill(dk->pid, dk->sig);
-	pr_warn("Resultat kill = %ld\n", *((long*)(dk->pr->data)));
 	dk->pr->done = true;
 	wake_up(&return_waitqueue);
 	kfree(dk);
@@ -116,7 +108,6 @@ int _perform_kill(pid_t pid, unsigned int sig)
 		return -ESRCH;
 	}
 
-	pr_warn("Kill pid\n");
 	ret = kill_pid(dest_pid, sig, 1);
 	put_pid(dest_pid);
 	return ret;

@@ -95,7 +95,6 @@ long perform_gen_wait(unsigned long arg, int is_waitall)
 	}
 	else{
 		pr = add_pending_result();
-		pr_warn("Ticket : %ld \n", pr->id_pend);
 
 		if(pr == NULL){
 			ret = -ENOMEM;
@@ -110,8 +109,6 @@ long perform_gen_wait(unsigned long arg, int is_waitall)
 			ret = -ENOMEM;
 			goto pr_data_alloc_fail;
 		}
-
-		pr_warn("Envoi du numero de ticket\n");
 
 		if (copy_to_user(&(((struct gen_wait_usr_struct*)arg)->id_pend), &(pr->id_pend), sizeof(unsigned long)))
 		{
