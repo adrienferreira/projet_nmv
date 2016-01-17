@@ -25,7 +25,7 @@ long perform_return(unsigned long arg)
 		ret = -EFAULT;
 		goto free1;
 	}
-	pr_warn("%s:%d: start return(%lu, %u)\n", __FILE__, __LINE__,
+	pr_debug("%s:%d: start return(%lu, %u)\n", __FILE__, __LINE__,
 		kcmd->id_pend, kcmd->size);
 
 	/* Retrieve pending result */
@@ -36,7 +36,7 @@ long perform_return(unsigned long arg)
 		goto rls_mutex;
 	}
 
-	pr_warn("%s:%d: wait\n", __FILE__, __LINE__);
+	pr_debug("%s:%d: wait\n", __FILE__, __LINE__);
 	/* Wait for result if not available yet */
 	if (!res->done)
 		wait_event(return_waitqueue, res->done);
@@ -46,7 +46,7 @@ long perform_return(unsigned long arg)
 		ret = -EINVAL;
 		goto rls_mutex;
 	}
-	pr_warn("%s:%d: copy_back\n", __FILE__, __LINE__);
+	pr_debug("%s:%d: copy_back\n", __FILE__, __LINE__);
 	kcmd->ioctl_nr = res->ioctl_nr;
 	kcmd->size = res->size;
 	if (copy_to_user(cmd, kcmd, sizeof(struct return_cmd)) != 0) {
@@ -57,16 +57,16 @@ long perform_return(unsigned long arg)
 	/* Free pending result from kernel */
 	list_del(&(res->list));
 	kfree(res->data);
-	pr_warn("%s:%d: return result freed from kernel\n", 
+	pr_debug("%s:%d: return result freed from kernel\n", 
 		__FILE__, __LINE__);
 rls_mutex:
 	mutex_unlock(&mutex_pend_results);
 	kfree(res);
-	pr_warn("%s:%d: rls_mutex\n", __FILE__, __LINE__);
+	pr_debug("%s:%d: rls_mutex\n", __FILE__, __LINE__);
 
 free1:
 	kfree(kcmd);
-	pr_warn("%s:%d: end return()\n", __FILE__, __LINE__);
+	pr_debug("%s:%d: end return()\n", __FILE__, __LINE__);
 	
 	return ret;
 }

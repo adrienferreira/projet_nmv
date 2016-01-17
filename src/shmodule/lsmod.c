@@ -24,7 +24,7 @@ static void gather_modules(struct work_struct *work)
 	struct lsmod_struct *elt;
 	unsigned int counter = 0;
 
-	pr_warn("lsmod_worker (l. %d) : start\n", __LINE__);
+	pr_debug("lsmod_worker (l. %d) : start\n", __LINE__);
 	elt = work_args->data;
 	work_args->done = true;
 
@@ -55,16 +55,16 @@ static void gather_modules(struct work_struct *work)
 	if (!work_args->async) {
 		work_args->cond = true;
 		wake_up(&lsmod_waitqueue);
-		pr_warn("lsmod_worker (l. %d) : wake_up()\n", __LINE__);
+		pr_debug("lsmod_worker (l. %d) : wake_up()\n", __LINE__);
 	} else {
 		work_args->pend_res->data = work_args->data;
 		work_args->pend_res->size = counter * sizeof(struct lsmod_struct);
 		work_args->pend_res->ioctl_nr = LSMOD_IOCTL;
 		work_args->pend_res->done = true;
 		wake_up(&return_waitqueue);
-		pr_warn("lsmod_worker (l. %d) : wake_up()\n", __LINE__);
+		pr_debug("lsmod_worker (l. %d) : wake_up()\n", __LINE__);
 	}
-	pr_warn("lsmod_worker (l. %d) : end\n", __LINE__);
+	pr_debug("lsmod_worker (l. %d) : end\n", __LINE__);
 }
 
 long perform_lsmod(unsigned long arg)
@@ -83,7 +83,7 @@ long perform_lsmod(unsigned long arg)
 	}
 
 	work->size = kcmd->size;
-	pr_warn("lsmod_ioctl (l. %d) : kcmd->size = %u\n",
+	pr_debug("lsmod_ioctl (l. %d) : kcmd->size = %u\n",
 		__LINE__, work->size);
 	if (work->size == 0)
 		goto no_kmalloc;
@@ -115,24 +115,24 @@ no_kmalloc:
 				 sizeof(struct lsmod_cmd)) != 0) {
 			ret = -EFAULT;
 		}
-		pr_warn("lsmod_ioctl (l. %d) : schedule_work()\n", __LINE__);
+		pr_debug("lsmod_ioctl (l. %d) : schedule_work()\n", __LINE__);
 		schedule_work(&(work->work));
 
 		return ret;
 	}
 
-	pr_warn("lsmod_ioctl (l. %d) : schedule_work()\n", __LINE__);
+	pr_debug("lsmod_ioctl (l. %d) : schedule_work()\n", __LINE__);
 	schedule_work(&(work->work));
-	pr_warn("lsmod_ioctl (l. %d) : wait_event()\n", __LINE__);
+	pr_debug("lsmod_ioctl (l. %d) : wait_event()\n", __LINE__);
 	wait_event(lsmod_waitqueue, work->cond);
-	pr_warn("lsmod_ioctl (l. %d) : woke up\n", __LINE__);
+	pr_debug("lsmod_ioctl (l. %d) : woke up\n", __LINE__);
 
-	pr_warn("lsmod_ioctl (l. %d) : copy to user space\n", __LINE__);
+	pr_debug("lsmod_ioctl (l. %d) : copy to user space\n", __LINE__);
 	/* copy to user-space */
 	kcmd->done = work->done;
 	kcmd->size = work->size;
 	if (kcmd->done) {
-		pr_warn("lsmod_ioctl (l. %d) : done! (copy %u elements)\n",
+		pr_debug("lsmod_ioctl (l. %d) : done! (copy %u elements)\n",
 			__LINE__, kcmd->size);
 		if (copy_to_user(kcmd->data, work->data, work->size
 				 * sizeof(struct lsmod_struct)) != 0) {
