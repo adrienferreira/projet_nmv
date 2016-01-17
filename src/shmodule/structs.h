@@ -13,11 +13,15 @@
 struct kill_struct {
 	unsigned int sig;
 	pid_t pid;
+	int async;
+	unsigned long id_pend;
 };
 
 struct gen_wait_usr_struct{
 	unsigned int nb_pid;
 	pid_t *pids;
+	int async;
+	unsigned long id_pend;
 };
 
 #ifndef MODULE_NAME_LEN

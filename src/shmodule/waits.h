@@ -3,6 +3,9 @@
 
 #define CHECK_FREQUENCY (1 * HZ)
 
+long perform_gen_wait(unsigned long arg, int is_waitall);
+void gen_wait_work(struct work_struct*param_gws);
+
 struct gen_wait_struct 
 {
 	//pids to wait
@@ -16,8 +19,8 @@ struct gen_wait_struct
 	//re-schecdule autonomously
 	unsigned long check_freq;
 	struct delayed_work dws;
-};
 
-long perform_gen_wait(unsigned long arg, int is_waitall);
+	struct pend_result *pr;
+};
 
 #endif
