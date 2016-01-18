@@ -79,7 +79,10 @@ long perform_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		return -ENOTTY;
 	}
 }
-
+/*
+ * add_pending_result - alloc an empty node and link it
+ * Returns a pointer to the node. Each node has a unique id.
+ */
 struct pend_result *add_pending_result(void)
 {
 	struct pend_result *pr;
@@ -101,6 +104,11 @@ struct pend_result *add_pending_result(void)
 	return pr;
 }
 
+/*
+ * get_result - get the node with the given id.
+ * @id : The id of the node.
+ * NULL is returned if the id doesn't exist.
+ */
 struct pend_result *get_result(long id)
 {
 	struct pend_result *pr;

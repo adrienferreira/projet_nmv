@@ -72,6 +72,7 @@ long perform_gen_wait(unsigned long arg, int is_waitall)
 		goto free_pids;
 	}
 
+	/* Get task_struct of all PIDs */
 	for (icp = 0; icp < (usr_struct.nb_pid); icp++) {
 		gws->tasks[icp] = get_pid_task(find_vpid(usr_struct.pids[icp]),
 					       PIDTYPE_PID);
@@ -83,6 +84,7 @@ long perform_gen_wait(unsigned long arg, int is_waitall)
 		}
 	}
 
+	/* Init the struct given to the worker */
 	atomic_set(&(gws->nb_finished), 0);
 	gws->nb_to_wait = 0;
 	gws->nb_pid = usr_struct.nb_pid;
@@ -155,6 +157,7 @@ void gen_wait_work(struct work_struct *param_gws)
 	cur_nb_wait = gws->nb_to_wait;
 	cur_fin = 0;
 
+	/* How many processes are finished */
 	for (icp = 0; icp < (gws->nb_pid); icp++)
 		if (!(pid_alive(gws->tasks[icp])))
 			cur_fin++;
@@ -163,6 +166,7 @@ void gen_wait_work(struct work_struct *param_gws)
 	atomic_set(&(gws->nb_finished), cur_fin);
 
 	if (cur_fin < cur_nb_wait) {
+		/* Not enought, re-check later (polling) */
 		schedule_delayed_work(&(gws->dws), gws->check_freq);
 	} else	{
 		if (gws->pr) {
@@ -175,5 +179,6 @@ void gen_wait_work(struct work_struct *param_gws)
 		}
 	}
 
+	/* Heartbeat to prevent timeout */
 	wake_up(&return_waitqueue);
 }
