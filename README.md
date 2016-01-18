@@ -3,8 +3,8 @@ Invité de commande pour le noyau Linux. À rendre avant le samedi 16 janvier, 2
 
 # Mode d'emploi
 Notre invite de commande est de type commande/sous-comande à la manière de Git.
-Avant d'executer le Makefile qui est à al racine du projet, il faut prendre soin de renseigner la variable d'environnement KERNELDOIR.
-Par exemple en éditant le Makefile à la racine du projet qui se répercutera sur tous les Makefiles du projet.
+Avant d'executer le Makefile qui est à la racine du projet, il faut prendre soin de renseigner la variable d'environnement KERNELDIR.
+Par exemple, en éditant le Makefile à la racine du projet qui se répercutera sur tous les Makefiles du projet.
 
 Le dossier src contient 3 sous-répertoires :
 	- shmodule : qui contient les source de l'unique module shmod.ko
@@ -22,7 +22,7 @@ Une fois compilé, le programme s'exécute ainsi :
 
 L'option -b est optionnelle mais doit obligatoirement figurer en premier argument du programme.
 Le mode asynchrone se lance avec l'option -b.
-Pour récupérer le résultat, toute commande lancée avec l'option -b affiche un numéro de ticket à renseigner pour récupérer le résultat ultérieurement.
+Toute commande lancée avec l'option -b affiche un numéro de ticket à renseigner pour récupérer le résultat ultérieurement.
 Est aussi affiché la taille de la valeur de retour à passer à la commande de récupération.
 
 Par exemple :
@@ -137,20 +137,30 @@ Shmem:            8620 kB
 
 # Explications
 Asynchronisme
+-------------
 Quand une commande est lancée avec l'option -b, le traitement est placé dans la workqueue système.
-Nous avons crée une liste chainée de résultats non-récupérés (struct pend_res), elle est protégée par un mutex global.
+Nous avons créé une liste chainée de résultats non-récupérés (struct pend_res), elle est protégée par un mutex global.
 À chaque commande asynchrone, un maillon est créé et passé en paramètre au traitant de la tâche asynchrone.
 Ce maillon possède un identifiant qui lui est assigné grâce à un compteur global.
 Cet identifiant est remonté dans l'espace utilisateur et affiché dans l'invité pour que l'utilisateur puisse récupérer le résultat de sa commande.
-Quand un traitant de commande dans la workqueue se termine, il place son résultat dans le maillon et réveille tous ceux qui attendaient la termianison du traitement.
+Quand un thread worker se termine, il place son résultat dans le maillon et réveille tous ceux qui attendaient la termianison du traitement.
 L'IOCTL return utilise une waitqueue pour s'endormir sur un maillon dont il attent le remplissage par un thread worker.
 
+Waits
+-----
 wait et waitall sont dirigés vers le même traitant d'IOCTL.
-Le wait n'étant qu'un cas particulier du waitall où le nombre de processus à attendre est égal toujours à 1, nous avons pu factoriser le code.
+Le wait n'étant qu'un cas particulier du waitall où le nombre de processus à attendre est toujours égal à 1, nous avons pu factoriser le code.
 
 Le tread worker de wait et waitall ne fait que boucler sur tous les PIDs en vérifiant qu'ils sont bien "alive".
 Si le nombre définit de PIDs à attendre n'est pas atteint, il se replace dans la delayed workqueue.
 La fréquence de vérification des PIDs a arbitrairement été fixé à une seconde et peut être modifié grâce à un define.
+Les commandes wait retournent le nombre de processus terminés.
 
-#Reste à faire
+kill
+----
+Kill utilise la fonction kill_pid.
+La valeur de retour de l'IOCTL kill est la valeur de retourn de kill_pid.
+
+Reste à faire
+=============
 Il n'est pas possible de récupérer simultanément le résultat d'une même commande asynchrone.
