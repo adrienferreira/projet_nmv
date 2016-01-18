@@ -4,7 +4,7 @@
 #include <linux/slab.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 
 #include "shmodule.h"
 #include "structs.h"
@@ -24,53 +24,62 @@ long perform_gen_wait(unsigned long arg, int is_waitall)
 	gws = NULL;
 	pr = NULL;
 
-	if (copy_from_user(&usr_struct, (void *)arg, sizeof(struct gen_wait_usr_struct))) {
+	if (copy_from_user(&usr_struct,
+			   (void *)arg,
+			   sizeof(struct gen_wait_usr_struct))) {
 		pr_warn("Impossible to retrieve struct to kernel space\n");
 		ret = -EFAULT;
-		goto copy_waitall_struct_fail;
+		goto final_return;
 	}
 
 	if (usr_struct.nb_pid == 0) {
 		pr_warn("No PID given.\n");
 		ret = -EFAULT;
-		goto pid_size_zero;
+		goto final_return;
 	}
 
 	usr_pids_ptr = usr_struct.pids;/* do not override user pointer */
-	usr_struct.pids = kmalloc((usr_struct.nb_pid * sizeof(pid_t)), GFP_KERNEL);
+	usr_struct.pids = kmalloc_array(usr_struct.nb_pid,
+					sizeof(pid_t),
+					GFP_KERNEL);
 
 	if (!(usr_struct.pids)) {
 		pr_warn("Impossible to allocate space for PIDs in kernel space\n");
 		ret = -ENOMEM;
-		goto alloc_pids_fail;
+		goto final_return;
 	}
 
-	if (copy_from_user(usr_struct.pids, (void *)usr_pids_ptr, (usr_struct.nb_pid * sizeof(pid_t)))) {
+	if (copy_from_user(usr_struct.pids,
+			   (void *)usr_pids_ptr,
+			   (usr_struct.nb_pid * sizeof(pid_t)))) {
 		pr_warn("Impossible to retrieve PIDs to kernel space\n");
 		ret = -EFAULT;
-		goto copy_pids_fail;
+		goto free_pids;
 	}
 
 	gws = kmalloc(sizeof(struct gen_wait_struct), GFP_KERNEL);
 	if (!gws) {
-		pr_warn("Impossible to allocate space for gen_wait_struct in kernel space\n");
 		ret = -ENOMEM;
-		goto alloc_gws_fail;
+		goto free_pids;
 	}
 
-	gws->tasks = kmalloc((usr_struct.nb_pid * sizeof(struct task_struct *)), GFP_KERNEL);
+	gws->tasks = kmalloc_array(usr_struct.nb_pid,
+				   sizeof(struct task_struct *),
+				   GFP_KERNEL);
 	if (!(gws->tasks)) {
 		pr_warn("Impossible to allocate space for PIDs in kernel space\n");
 		ret = -ENOMEM;
-		goto alloc_gws_fail;
+		goto free_pids;
 	}
 
 	for (icp = 0; icp < (usr_struct.nb_pid); icp++) {
-		gws->tasks[icp] = get_pid_task(find_vpid(usr_struct.pids[icp]), PIDTYPE_PID);
+		gws->tasks[icp] = get_pid_task(find_vpid(usr_struct.pids[icp]),
+					       PIDTYPE_PID);
 		if (!(gws->tasks[icp])) {
-			pr_warn("No process with the given PID (%d)\n", (int)usr_struct.pids[icp]);
+			pr_warn("No process with the given PID (%d)\n",
+				(int)usr_struct.pids[icp]);
 			ret = -ESRCH;
-			goto pid_not_found_fail;
+			goto free_all;
 		}
 	}
 
@@ -85,8 +94,11 @@ long perform_gen_wait(unsigned long arg, int is_waitall)
 	schedule_delayed_work(&(gws->dws), gws->check_freq);
 
 	if (!usr_struct.async) {
-		while ((nb_proc_finished =  atomic_read(&(gws->nb_finished))) < gws->nb_to_wait)
+		nb_proc_finished = atomic_read(&(gws->nb_finished));
+		while (nb_proc_finished < gws->nb_to_wait) {
 			schedule();
+			nb_proc_finished = atomic_read(&(gws->nb_finished));
+		}
 
 		ret = nb_proc_finished;
 		goto free_all;
@@ -95,7 +107,7 @@ long perform_gen_wait(unsigned long arg, int is_waitall)
 
 		if (pr == NULL) {
 			ret = -ENOMEM;
-			goto add_pend_res_fail;
+			goto free_all;
 		}
 
 		pr->ioctl_nr = is_waitall?WAITALL_IOCTL:WAIT_IOCTL;
@@ -104,13 +116,15 @@ long perform_gen_wait(unsigned long arg, int is_waitall)
 
 		if (pr->data == NULL) {
 			ret = -ENOMEM;
-			goto pr_data_alloc_fail;
+			goto free_all;
 		}
 
-		if (copy_to_user(&(((struct gen_wait_usr_struct *)arg)->id_pend), &(pr->id_pend), sizeof(unsigned long))) {
+		if (copy_to_user(&((struct gen_wait_usr_struct *)arg)->id_pend,
+				 &(pr->id_pend),
+				 sizeof(unsigned long))) {
 			pr_warn("Cannot transfert id_pend to user space\n");
 			ret = -EFAULT;
-			goto copy_id_pend_fail;
+			goto free_all;
 		}
 
 		gws->pr = pr;
@@ -121,22 +135,13 @@ final_return:
 	return ret;
 
 free_all:
-copy_id_pend_fail:
-pr_data_alloc_fail:
-add_pend_res_fail:
-pid_not_found_fail:
 	for (j = 0; j < icp; j++)
 		if (gws->tasks[j])
 			put_task_struct(gws->tasks[j]);
-
 	kfree(gws->tasks);
-alloc_gws_fail:
-copy_pids_fail:
+
+free_pids:
 	kfree(usr_struct.pids);
-alloc_pids_fail:
-pid_size_zero:
-copy_waitall_struct_fail:
-	goto final_return;
 }
 
 

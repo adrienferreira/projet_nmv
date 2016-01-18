@@ -1,8 +1,9 @@
 #ifndef MISHELL_H_
 #define MISHELL_H_
 
-#define PRINT_USAGE printf("usage : %s [-b] <command> [<args>]\n\
-Type \"%s help\" for a list of commands\n", argv[0], argv[0])
+#define PRINT_USAGE() printf("usage : %s [-b] <command> [<args>]\n"	\
+			     "Type \"%s help\" for a list of commands\n" \
+			     , argv[0], argv[0])
 #define PRINT_HELP printf("Options:\n"					\
 			  "  -b                          run in background\n" \
 			  "Command list:\n"				\
@@ -16,8 +17,8 @@ Type \"%s help\" for a list of commands\n", argv[0], argv[0])
 			  " (never runs in background)\n")
 #define PRINT_PRINT_HELP printf("Command list:\n"			\
 				"  help                  print this help\n" \
-				"  meminfo               print memory info\n")// \
-  //"  cpuinfo               print CPU info\n")
+				"  meminfo               print memory info\n")
+  /*"  cpuinfo               print CPU info\n")*/
 
 enum commands {UNKNOWN, HELP, KILL, WAIT, WAITALL, PRINT, LSMOD, RETURN};
 

@@ -4,7 +4,7 @@
 #include <linux/slab.h>
 #include <linux/kthread.h>
 #include <linux/fs.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <linux/list.h>
 #include <linux/mutex.h>
 #include <linux/mm.h>
@@ -25,7 +25,7 @@ MODULE_AUTHOR("Redha Adrien");
 MODULE_LICENSE("GPL");
 
 static unsigned int major_nr;
-static struct file_operations fops = {
+static const struct file_operations fops = {
 	.unlocked_ioctl = perform_ioctl
 };
 
@@ -36,18 +36,17 @@ DECLARE_WAIT_QUEUE_HEAD(return_waitqueue);
 
 
 static int shmodule_init(void)
-{	
+{
 	INIT_LIST_HEAD(&lst_pend_results);
 	cur_id_pend = 0;
 
 	major_nr = register_chrdev(0, CHRDEV_NAME, &fops);
 
-	if (major_nr == -EINVAL || major_nr == -EBUSY){
+	if (major_nr == -EINVAL || major_nr == -EBUSY) {
 		pr_warn("Impossible to create the file "CHRDEV_NAME"\n");
 		return 1;
 	}
 
-	//TODO mknod
 	pr_warn("Major number : %u\n", major_nr);
 
 	return 0;
@@ -56,7 +55,7 @@ module_init(shmodule_init);
 
 static void shmodule_exit(void)
 {
-	pr_warn("Unregister device");	
+	pr_warn("Unregister device");
 	unregister_chrdev(major_nr, CHRDEV_NAME);
 }
 module_exit(shmodule_exit);
@@ -81,16 +80,14 @@ long perform_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	}
 }
 
-struct pend_result* add_pending_result()
+struct pend_result *add_pending_result(void)
 {
 	struct pend_result *pr;
-	
+
 	pr = kmalloc(sizeof(struct pend_result), GFP_KERNEL);
 
-	if (pr == NULL) {
-		pr_warn("Impossible to allocate space to store the result");
+	if (pr == NULL)
 		return NULL;
-	}
 
 	INIT_LIST_HEAD(&(pr->list));
 	pr->data = NULL;
@@ -104,13 +101,13 @@ struct pend_result* add_pending_result()
 	return pr;
 }
 
-struct pend_result* get_result(long id)
+struct pend_result *get_result(long id)
 {
 	struct pend_result *pr;
 
 	list_for_each_entry(pr, &lst_pend_results, list)
 		if (pr->id_pend == id)
 			return pr;
-	
+
 	return NULL;
 }

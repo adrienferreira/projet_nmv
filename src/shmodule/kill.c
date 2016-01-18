@@ -4,7 +4,7 @@
 #include <linux/slab.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 
 #include "shmodule.h"
 #include "structs.h"
@@ -57,7 +57,9 @@ long perform_kill(unsigned long arg)
 		dk->pid = usr_struct.pid;
 		dk->sig = usr_struct.sig;
 
-		if (copy_to_user(&(((struct kill_struct *)arg)->id_pend), &(pr->id_pend), sizeof(unsigned long))) {
+		if (copy_to_user(&(((struct kill_struct *)arg)->id_pend),
+				 &(pr->id_pend),
+				 sizeof(unsigned long))) {
 			pr_warn("Cannot transfert id_pend to user space\n");
 			ret = -EFAULT;
 			goto copy_id_pend_fail;

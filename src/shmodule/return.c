@@ -4,7 +4,7 @@
 #include <linux/slab.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 
 #include "shmodule.h"
 #include "structs.h"
@@ -16,8 +16,8 @@ long perform_return(unsigned long arg)
 	struct return_cmd *cmd = NULL, *kcmd = NULL;
 	struct pend_result *res = NULL;
 
-        /* Retrieve command from user */
-	cmd = (struct return_cmd*) arg;
+	/* Retrieve command from user */
+	cmd = (struct return_cmd *) arg;
 	kcmd = kmalloc(sizeof(struct return_cmd), GFP_KERNEL);
 	if (kcmd == NULL)
 		return -ENOMEM;
@@ -40,9 +40,11 @@ long perform_return(unsigned long arg)
 	/* Wait for result if not available yet */
 	if (!res->done)
 		wait_event(return_waitqueue, res->done);
-	
+
 	/* Copy result back to user */
-	if (copy_to_user(kcmd->data, res->data, min(kcmd->size, res->size)) != 0) {
+	if (copy_to_user(kcmd->data,
+			 res->data,
+			 min(kcmd->size, res->size)) != 0) {
 		ret = -EINVAL;
 		goto rls_mutex;
 	}
@@ -57,7 +59,7 @@ long perform_return(unsigned long arg)
 	/* Free pending result from kernel */
 	list_del(&(res->list));
 	kfree(res->data);
-	pr_debug("%s:%d: return result freed from kernel\n", 
+	pr_debug("%s:%d: return result freed from kernel\n",
 		__FILE__, __LINE__);
 rls_mutex:
 	mutex_unlock(&mutex_pend_results);
@@ -67,6 +69,6 @@ rls_mutex:
 free1:
 	kfree(kcmd);
 	pr_debug("%s:%d: end return()\n", __FILE__, __LINE__);
-	
+
 	return ret;
 }

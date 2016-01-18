@@ -46,24 +46,41 @@ int main(int argc, char **argv)
 
 	switch (cmd) {
 	case KILL:
-		ret = perform_kill(argc - 1 - async, argv + 1 + async, f, async);
+		ret = perform_kill(argc - 1 - async,
+				   argv + 1 + async,
+				   f,
+				   async);
 		break;
 	case WAIT:
-		ret = perform_wait(argc - 1 - async, argv + 1 + async, f, async);
+		ret = perform_wait(argc - 1 - async,
+				   argv + 1 + async,
+				   f,
+				   async);
 		break;
 	case WAITALL:
-		ret = perform_waitall(argc - 1 - async, argv + 1 + async, f, async);
+		ret = perform_waitall(argc - 1 - async,
+				      argv + 1 + async,
+				      f,
+				      async);
 		break;
 	case PRINT:
-		ret = perform_print(argc - 1 - async, argv + 1 + async, f, async);
+		ret = perform_print(argc - 1 - async,
+				    argv + 1 + async,
+				    f,
+				    async);
 		break;
 	case LSMOD:
-		ret = perform_lsmod(argc - 1 - async, argv + 1 + async, f, async);
+		ret = perform_lsmod(argc - 1 - async,
+				    argv + 1 + async,
+				    f,
+				    async);
 		break;
 	case RETURN:
-		ret = perform_return(argc - 1 - async, argv + 1 + async, f);
+		ret = perform_return(argc - 1 - async,
+				     argv + 1 + async,
+				     f);
 		break;
-	}		
+	}
 
 	close(f);
 
@@ -94,7 +111,7 @@ int perform_kill(int argc, char **argv, int fd, int async)
 	struct kill_struct ks;
 	int ret;
 
-	if (argc != 3){
+	if (argc != 3) {
 		printf("Usage : ./prog <pid> <num_sig>\n");
 		exit(EXIT_FAILURE);
 	}
@@ -106,9 +123,8 @@ int perform_kill(int argc, char **argv, int fd, int async)
 
 	ret = ioctl(fd, KILL_IOCTL, &ks);
 
-	if(async)
-	{
-		printf("Async call got number %ld \n", ks.id_pend);
+	if (async) {
+		printf("Async call got number %ld\n", ks.id_pend);
 		printf("Reclaim result with 'return %ld %lu' command\n",
 		       ks.id_pend, sizeof(long));
 	}
@@ -123,7 +139,7 @@ int perform_lsmod(int argc, char **argv, int fd, int async)
 	struct lsmod_cmd cmd = {.data = res,
 				.size = 10,
 				.async = async};
-	
+
 	if (argc != 1)
 		return -EINVAL;
 
@@ -141,7 +157,8 @@ int perform_lsmod(int argc, char **argv, int fd, int async)
 		if (!cmd.done) {
 			cmd.size += 10;
 			free(cmd.data);
-			cmd.data = malloc(cmd.size * sizeof(struct lsmod_struct));
+			cmd.data = malloc(cmd.size *
+					  sizeof(struct lsmod_struct));
 		}
 	} while (!cmd.done);
 
@@ -149,7 +166,7 @@ int perform_lsmod(int argc, char **argv, int fd, int async)
 		print_modules(cmd.data, cmd.size);
 		free(cmd.data);
 	} else {
-		printf("Async call got number %ld \n", cmd.id_pend);
+		printf("Async call got number %ld\n", cmd.id_pend);
 		printf("Reclaim result with 'return %ld %lu' command\n",
 		       cmd.id_pend, cmd.size * sizeof(struct lsmod_struct));
 	}
@@ -210,7 +227,7 @@ int perform_print_meminfo(int fd, int async)
 	if (!async)
 		print_meminfo(&meminfo);
 	else {
-		printf("Async call got number %ld \n", cmd.id_pend);
+		printf("Async call got number %ld\n", cmd.id_pend);
 		printf("Reclaim result with 'return %ld %lu' command\n",
 		       cmd.id_pend, sizeof(struct sysinfo));
 	}
@@ -224,29 +241,28 @@ int perform_print_cpuinfo(int fd, int async)
 	return 0;
 }
 
-void wait_build_struct(int argc, char*argv[], struct gen_wait_usr_struct *gwus)
+void wait_build_struct(int argc, char **argv, struct gen_wait_usr_struct *gwus)
 {
 	int i;
 
 	gwus->nb_pid = (argc - 1);
-	gwus->pids=(pid_t*)malloc(gwus->nb_pid * sizeof(pid_t));
+	gwus->pids = (pid_t *)malloc(gwus->nb_pid * sizeof(pid_t));
 
-	if(!(gwus->pids)){
+	if (!(gwus->pids)) {
 		perror("PIDs allocation failed\n");
 		exit(EXIT_FAILURE);
 	}
 
-	for(i=0; i < gwus->nb_pid; i++)
+	for (i = 0; i < gwus->nb_pid; i++)
 		gwus->pids[i] = (pid_t)atoi(argv[i+1]);
 }
 
 int perform_wait(int argc, char **argv, int fd, int async)
 {
-	struct gen_wait_usr_struct gwus; 
+	struct gen_wait_usr_struct gwus;
 	int ret;
-	
-	if(argc == 1)
-	{
+
+	if (argc == 1) {
 		printf("Usage : ./prog <pid1>, ..., <pidN>\n");
 		exit(EXIT_FAILURE);
 	}
@@ -254,11 +270,10 @@ int perform_wait(int argc, char **argv, int fd, int async)
 	gwus.async = async;
 	gwus.id_pend = -1;
 	wait_build_struct(argc, argv, &gwus);
-	ret= ioctl(fd, WAIT_IOCTL, &gwus);
+	ret = ioctl(fd, WAIT_IOCTL, &gwus);
 
-	if(async)
-	{
-		printf("Async call got number %ld \n", gwus.id_pend);
+	if (async) {
+		printf("Async call got number %ld\n", gwus.id_pend);
 		printf("Reclaim result with 'return %ld %lu' command\n",
 		       gwus.id_pend, sizeof(int));
 	}
@@ -268,11 +283,10 @@ int perform_wait(int argc, char **argv, int fd, int async)
 
 int perform_waitall(int argc, char **argv, int fd, int async)
 {
-	struct gen_wait_usr_struct gwus; 
+	struct gen_wait_usr_struct gwus;
 	int ret;
-	
-	if(argc == 1)
-	{
+
+	if (argc == 1) {
 		printf("Usage : ./prog <pid1>, ..., <pidN>\n");
 		exit(EXIT_FAILURE);
 	}
@@ -280,11 +294,10 @@ int perform_waitall(int argc, char **argv, int fd, int async)
 	gwus.async = async;
 	gwus.id_pend = -1;
 	wait_build_struct(argc, argv, &gwus);
-	ret= ioctl(fd, WAITALL_IOCTL, &gwus);
+	ret = ioctl(fd, WAITALL_IOCTL, &gwus);
 
-	if(async)
-	{
-		printf("Async call got number %ld \n", gwus.id_pend);
+	if (async) {
+		printf("Async call got number %ld\n", gwus.id_pend);
 		printf("Reclaim result with 'return %ld %lu' command\n",
 		       gwus.id_pend, sizeof(int));
 	}
@@ -311,14 +324,15 @@ int perform_return(int argc, char **argv, int fd)
 		goto ret_free;
 	switch (cmd.ioctl_nr) {
 	case LSMOD_IOCTL:
-		print_modules((struct lsmod_struct*)cmd.data, cmd.size / sizeof(struct lsmod_struct));
+		print_modules((struct lsmod_struct *)cmd.data,
+			      cmd.size / sizeof(struct lsmod_struct));
 		break;
 	case KILL_IOCTL:
-		printf("Return kill : %ld\n", *((long*)cmd.data));
+		printf("Return kill : %ld\n", *((long *)cmd.data));
 		break;
 	case WAIT_IOCTL:
 	case WAITALL_IOCTL:
-		printf("Return wait : %d\n", *((int*)cmd.data));
+		printf("Return wait : %d\n", *((int *)cmd.data));
 		break;
 	case MEMINFO_IOCTL:
 		print_meminfo((struct sysinfo *)cmd.data);
@@ -336,9 +350,9 @@ void print_modules(struct lsmod_struct *data, unsigned int size)
 	int i;
 
 	printf("Module\t\t\tSize  Used by\n");
-	for (i = 0; i < size; i++) {
-		printf("%-24s%-5u %u\n", data[i].name, data[i].size, data[i].ref);
-	}
+	for (i = 0; i < size; i++)
+		printf("%-24s%-5u %u\n",
+		       data[i].name, data[i].size, data[i].ref);
 }
 
 void print_meminfo(struct sysinfo *meminfo)
@@ -348,14 +362,14 @@ void print_meminfo(struct sysinfo *meminfo)
 	unit = meminfo->mem_unit / 1024;
 	printf("MemTotal:     %8lu kB\n"
 	       "MemFree:      %8lu kB\n"
-	       "MemAvailable: %8lu kB\n"      /* complicated, see fs/proc/meminfo.c */
+	       "MemAvailable: %8lu kB\n"/* complicated, see fs/proc/meminfo.c */
 	       "Buffers:      %8lu kB\n"
 	       "SwapTotal:    %8lu kB\n"
 	       "SwapFree:     %8lu kB\n"
 	       "Shmem:        %8lu kB\n",
 	       meminfo->totalram * unit,
 	       meminfo->freeram  * unit,
-	       (long unsigned int) 0,
+	       (unsigned long int) 0,
 	       meminfo->bufferram * unit,
 	       meminfo->totalswap * unit,
 	       meminfo->freeswap * unit,

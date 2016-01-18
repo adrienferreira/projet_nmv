@@ -17,7 +17,7 @@ struct kill_struct {
 	unsigned long id_pend;
 };
 
-struct gen_wait_usr_struct{
+struct gen_wait_usr_struct {
 	unsigned int nb_pid;
 	pid_t *pids;
 	int async;

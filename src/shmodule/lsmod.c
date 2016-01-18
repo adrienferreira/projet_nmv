@@ -5,7 +5,7 @@
 #include <linux/wait.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 
 #include "shmodule.h"
 #include "structs.h"
@@ -49,6 +49,7 @@ static void gather_modules(struct work_struct *work)
 			counter++;
 		}
 	}
+
 	mutex_unlock(&module_mutex);
 	work_args->size = counter;
 
@@ -58,7 +59,8 @@ static void gather_modules(struct work_struct *work)
 		pr_debug("lsmod_worker (l. %d) : wake_up()\n", __LINE__);
 	} else {
 		work_args->pend_res->data = work_args->data;
-		work_args->pend_res->size = counter * sizeof(struct lsmod_struct);
+		work_args->pend_res->size = counter *
+			sizeof(struct lsmod_struct);
 		work_args->pend_res->ioctl_nr = LSMOD_IOCTL;
 		work_args->pend_res->done = true;
 		wake_up(&return_waitqueue);
