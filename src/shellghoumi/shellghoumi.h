@@ -1,7 +1,7 @@
 #ifndef MISHELL_H_
 #define MISHELL_H_
 
-#define PRINT_USAGE() printf("usage : %s [-b] <command> [<args>]\n"	\
+#define PRINT_USAGE printf("usage : %s [-b] <command> [<args>]\n"	\
 			     "Type \"%s help\" for a list of commands\n" \
 			     , argv[0], argv[0])
 #define PRINT_HELP printf("Options:\n"					\

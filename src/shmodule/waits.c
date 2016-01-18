@@ -144,6 +144,7 @@ free_all:
 
 free_pids:
 	kfree(usr_struct.pids);
+	goto final_return;
 }
 
 
