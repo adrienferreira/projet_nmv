@@ -63,7 +63,9 @@ long perform_meminfo(unsigned long arg)
 	si_meminfo(&kmeminfo);
 	si_swapinfo(&kmeminfo);
 
-	if (copy_to_user((struct sysinfo *) arg, &kmeminfo, sizeof(struct sysinfo)) != 0)
+	pr_warn("meminfo: MemTotal: %lu\n", kmeminfo.totalram * kmeminfo.mem_unit / 1024);
+
+	if (copy_to_user(kcmd.data, &kmeminfo, sizeof(struct sysinfo)) != 0)
 		return -EFAULT;
 
 	return 0;
